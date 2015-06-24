@@ -47,8 +47,8 @@ using namespace ros;
 using namespace KDL;
 using namespace robot_state_publisher;
 
-JointStateListener::JointStateListener(const KDL::Tree& tree, const MimicMap& m, const urdf::Model& model)
-  : state_publisher_(tree, model), mimic_(m)
+JointStateListener::JointStateListener(const urdf::Model& model)
+  : state_publisher_(model)
 {
   ros::NodeHandle n_tilde("~");
   ros::NodeHandle n;
@@ -61,7 +61,8 @@ JointStateListener::JointStateListener(const KDL::Tree& tree, const MimicMap& m,
   // ignore_timestamp_ == true, joins_states messages are accepted, no matter their timestamp
   n_tilde.param("ignore_timestamp", ignore_timestamp_, false);
   // get the tf_prefix parameter from the closest namespace
-  publish_interval_ = ros::Duration(1.0/max(publish_freq, 1.0));
+  publish_interval_ = ros::Duration(1.0/max(publish_freq,1.0));
+  save_interval_ = ros::Duration(1.0/20.0);
 
   // Setting tcpNoNelay tells the subscriber to ask publishers that connect
   // to set TCP_NODELAY on their side. This prevents some joint_state messages
@@ -73,13 +74,31 @@ JointStateListener::JointStateListener(const KDL::Tree& tree, const MimicMap& m,
 
   // trigger to publish fixed joints
   // if using static transform broadcaster, this will be a oneshot trigger and only run once
-  timer_ = n_tilde.createTimer(publish_interval_, &JointStateListener::callbackFixedJoint, this, use_tf_static_);
+  pub_timer_ = n_tilde.createTimer(publish_interval_, &JointStateListener::callbackFixedJoint, this, use_tf_static_);
+
+  // Only one node should set the robot_description parameter:
+  bool set_robot_description = false;
+  n_tilde.param<bool>("set_robot_description", set_robot_description, false);
+  if (set_robot_description)
+  {
+    ROS_INFO("This node will set the robot_description parameter.");
+    save_timer_ = n_tilde.createTimer(save_interval_, &JointStateListener::callbackSaveUrdf, this);
+  }
+};
+
+bool JointStateListener::init()
+{
+  return state_publisher_.init();
 }
 
 
 JointStateListener::~JointStateListener()
 {}
 
+void JointStateListener::callbackSaveUrdf(const ros::TimerEvent& e)
+{
+  state_publisher_.setRobotDescriptionIfChanged();
+}
 
 void JointStateListener::callbackFixedJoint(const ros::TimerEvent& e)
 {
@@ -133,11 +152,9 @@ void JointStateListener::callbackJointState(const JointStateConstPtr& state)
       joint_positions.insert(make_pair(state->name[i], state->position[i]));
     }
 
-    for (MimicMap::iterator i = mimic_.begin(); i != mimic_.end(); i++) {
-      if(joint_positions.find(i->second->joint_name) != joint_positions.end()) {
-        double pos = joint_positions[i->second->joint_name] * i->second->multiplier + i->second->offset;
-        joint_positions.insert(make_pair(i->first, pos));
-      }
+    if(!state_publisher_.getJointMimicPositions(joint_positions))
+    {
+      ROS_WARN("Failed to update mimic joint transforms due to URDF update.");
     }
 
     state_publisher_.publishTransforms(joint_positions, state->header.stamp);
@@ -171,24 +188,11 @@ int main(int argc, char** argv)
 
   // gets the location of the robot description on the parameter server
   urdf::Model model;
-  if (!model.initParam("robot_description"))
+  if (!model.initParam("robot_base_description"))
     return -1;
 
-  KDL::Tree tree;
-  if (!kdl_parser::treeFromUrdfModel(model, tree)) {
-    ROS_ERROR("Failed to extract kdl tree from xml robot description");
-    return -1;
-  }
-
-  MimicMap mimic;
-
-  for(std::map< std::string, urdf::JointSharedPtr >::iterator i = model.joints_.begin(); i != model.joints_.end(); i++) {
-    if(i->second->mimic) {
-      mimic.insert(make_pair(i->first, i->second->mimic));
-    }
-  }
-
-  JointStateListener state_publisher(tree, mimic, model);
+  JointStateListener state_publisher(model);
+  state_publisher.init();
   ros::spin();
 
   return 0;

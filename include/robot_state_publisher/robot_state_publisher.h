@@ -42,11 +42,16 @@
 #include <urdf/model.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <boost/thread/shared_mutex.hpp>
 #include <kdl/frames.hpp>
 #include <kdl/segment.hpp>
 #include <kdl/tree.hpp>
+#include <robot_state_publisher/robot_kdl_tree.h>
+#include <urdf/model.h>
+#include <memory>
 
 namespace robot_state_publisher {
+typedef std::map<std::string, std::shared_ptr<urdf::JointMimic> > MimicMap;
 
 class SegmentPair
 {
@@ -59,13 +64,17 @@ public:
 };
 
 
-class RobotStatePublisher
+class RobotStatePublisher : public robot_kdl_tree::RobotKDLTree
 {
 public:
+  virtual bool init();
+
+  virtual void onURDFSwap(const std::string &link_name);
+
   /** Constructor
    * \param tree The kinematic model of a robot, represented by a KDL Tree
    */
-  RobotStatePublisher(const KDL::Tree& tree, const urdf::Model& model = urdf::Model());
+  RobotStatePublisher(const urdf::Model& model = urdf::Model());
 
   /// Destructor
   ~RobotStatePublisher(){};
@@ -76,6 +85,10 @@ public:
    */
   virtual void publishTransforms(const std::map<std::string, double>& joint_positions, const ros::Time& time);
   virtual void publishFixedTransforms(bool use_tf_static = false);
+  void publishFixedTransforms(const std::string& tf_prefix);
+  void setRobotDescriptionIfChanged();
+  void setJointMimicMap(const urdf::Model& model);
+  bool getJointMimicPositions(std::map<std::string, double>& joint_positions);
 
 protected:
   virtual void addChildren(const KDL::SegmentMap::const_iterator segment);
@@ -84,6 +97,11 @@ protected:
   const urdf::Model& model_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
   tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
+
+  bool initialized_;
+  bool urdf_changed_;
+  MimicMap mimic_;
+  boost::shared_mutex mimic_mtx_;
 };
 
 }

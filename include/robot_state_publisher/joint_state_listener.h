@@ -49,7 +49,6 @@ using namespace ros;
 using namespace KDL;
 
 typedef boost::shared_ptr<sensor_msgs::JointState const> JointStateConstPtr;
-typedef std::map<std::string, urdf::JointMimicSharedPtr > MimicMap;
 
 namespace robot_state_publisher {
 
@@ -58,7 +57,8 @@ public:
   /** Constructor
    * \param tree The kinematic model of a robot, represented by a KDL Tree
    */
-  JointStateListener(const KDL::Tree& tree, const MimicMap& m, const urdf::Model& model = urdf::Model());
+  JointStateListener(const urdf::Model& model = urdf::Model());
+  bool init();
 
   /// Destructor
   ~JointStateListener();
@@ -67,13 +67,17 @@ protected:
   virtual void callbackJointState(const JointStateConstPtr& state);
   virtual void callbackFixedJoint(const ros::TimerEvent& e);
 
+private:
+  void callbackSaveUrdf(const ros::TimerEvent& e);
+
   Duration publish_interval_;
+  Duration save_interval_;
   robot_state_publisher::RobotStatePublisher state_publisher_;
   Subscriber joint_state_sub_;
-  ros::Timer timer_;
+  ros::Timer pub_timer_;
+  ros::Timer save_timer_;
   ros::Time last_callback_time_;
   std::map<std::string, ros::Time> last_publish_time_;
-  MimicMap mimic_;
   bool use_tf_static_;
   bool ignore_timestamp_;
 
