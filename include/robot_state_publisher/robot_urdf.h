@@ -48,7 +48,7 @@
 
 #include <ros/ros.h>
 #include <urdf/model.h>
-#include <robot_state_publisher/URDFConfiguration.h>
+#include <intera_core_msgs/URDFConfiguration.h>
 
 namespace robot_urdf {
 
@@ -174,7 +174,7 @@ class RobotURDF
 
   bool regenerateUrdf();
 
-  void onURDFConfigurationMsg(const robot_state_publisher::URDFConfiguration &config);
+  void onURDFConfigurationMsg(const intera_core_msgs::URDFConfiguration &config);
   virtual bool onURDFChange(const std::string &link_name);
   virtual void onURDFSwap(const std::string &link_name);
 

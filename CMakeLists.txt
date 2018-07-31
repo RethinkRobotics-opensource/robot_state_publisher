@@ -5,19 +5,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra")
 
 find_package(orocos_kdl REQUIRED)
 find_package(catkin REQUIRED
-  COMPONENTS roscpp rosconsole rostime tf2_ros tf2_kdl kdl_parser std_msgs
+  COMPONENTS roscpp rosconsole rostime tf2_ros tf2_kdl kdl_parser intera_core_msgs
 )
 find_package(Eigen3 REQUIRED)
 
 find_package(urdfdom_headers REQUIRED)
-
-add_message_files(DIRECTORY msg FILES
-  URDFConfiguration.msg
-)
-
-generate_messages(DEPENDENCIES
-  std_msgs
-)
 
 catkin_package(
   LIBRARIES ${PROJECT_NAME}_solver
@@ -41,7 +33,6 @@ target_link_libraries(joint_state_listener ${PROJECT_NAME}_solver ${orocos_kdl_L
 
 add_executable(${PROJECT_NAME} src/joint_state_listener.cpp)
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_solver ${orocos_kdl_LIBRARIES})
-add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_generate_messages_cpp)
 
 # compile the same executable using the old name as well
 add_executable(state_publisher src/joint_state_listener.cpp)

@@ -197,7 +197,7 @@ bool RobotURDF::regenerateUrdf()
 
 
 // URDFConfiguration subscriber callback.
-void RobotURDF::onURDFConfigurationMsg(const robot_state_publisher::URDFConfiguration &config)
+void RobotURDF::onURDFConfigurationMsg(const intera_core_msgs::URDFConfiguration &config)
 {
   const std::string & linkName = config.link;
   if (linkName.empty())
